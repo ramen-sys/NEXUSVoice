@@ -33,4 +33,4 @@ async def call_mcp_tool(session:ClientSession,tool_name:str,arguments:dict):
     and return just the plain text result"""
 
     result =await session.call_tool(tool_name,arguments=arguments)
-    return result.content[0].texts
+    return result.content[0].text
