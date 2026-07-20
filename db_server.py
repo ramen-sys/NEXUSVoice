@@ -2,6 +2,7 @@ import os
 import psycopg2
 from dotenv import load_dotenv
 from mcp.server.fastmcp import FastMCP
+import time
 
 
 load_dotenv()
@@ -16,33 +17,43 @@ def query_staff(question_topic:str) -> str:
     "Looks up IT helpdesk staff information fromt the database, Use this information about who is on call, staff contact"
     "details,extensions, departments, or who to contact for a specific type of IT issue (network,hardware or software)"
     "question_topic should be a short keyword like network or on call or a staff members name"
+    for attempt in range(2):
+        try:
 
-    conn=get_connection()
-    cursor=conn.cursor()
-    words=question_topic.split()
-    all_rows=[]
-    seen_ids=set()
-    for word in words:
+            conn=get_connection()
+            cursor=conn.cursor()
+            words=question_topic.split()
+            all_rows=[]
+            seen_ids=set()
+            for word in words:
 
-        cursor.execute(
-            """ SELECT id,name,role,department, on_call_day,extension,specialty
-            FROM staff
-            WHERE name ILIKE %s 
-            OR specialty ILIKE %s
-            OR department ILIKE %s 
-            OR on_call_day ILIKE %s""",
-            (f'%{word}%',f"%{word}%",f"%{word}%", f"%{word}%")
+                cursor.execute(
+                    """ SELECT id,name,role,department, on_call_day,extension,specialty
+                    FROM staff
+                    WHERE name ILIKE %s 
+                    OR specialty ILIKE %s
+                    OR department ILIKE %s 
+                    OR on_call_day ILIKE %s""",
+                    (f'%{word}%',f"%{word}%",f"%{word}%", f"%{word}%")
 
-            
-        )
-    for row in cursor.fetchall():
-        row_id=row[0]
-        if row_id not in seen_ids:
-            seen_ids.add(row_id)
-            all_rows.append(row)
-    
-    cursor.close()
-    conn.close()
+                    
+                )
+                for row in cursor.fetchall():
+                    row_id=row[0]
+                    if row_id not in seen_ids:
+                        seen_ids.add(row_id)
+                        all_rows.append(row)
+        
+            cursor.close()
+            conn.close()
+            break
+        except psycopg2.OperationalError as e:
+            if attempt == 0:
+                print(f"[DB connection dropped, retrying... {e}]")
+                time.sleep(1)
+                continue
+            else:
+                return f"DB_ERROR: {e}"
 
     if not all_rows:
         return "NO_RESULTS"

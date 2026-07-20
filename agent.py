@@ -72,7 +72,7 @@ async def run_agent(user_question:str):
                         #add the web result as a new tool-style message so groq has both attempts in context for its final anser
                         messages.append({
                             'role':"user",
-                            "content":f"the internal database had no result Here is the information from the web search instead"
+                            "content":f"the internal database had no result Here is the information from the web search instead {web_result}"
                         })
                     print("Messages being sent for final answer:")
                     for m in messages:
@@ -81,7 +81,7 @@ async def run_agent(user_question:str):
                     print("Final answer is: ",final_response.choices[0].message.content)
 
 if __name__=="__main__":
-    asyncio.run(run_agent("What is the extension of Ayesha Malik?"))
+    asyncio.run(run_agent("Who is Ayesha Malik ?"))
 
                     
 
