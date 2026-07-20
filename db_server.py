@@ -19,29 +19,38 @@ def query_staff(question_topic:str) -> str:
 
     conn=get_connection()
     cursor=conn.cursor()
+    words=question_topic.split()
+    all_rows=[]
+    seen_ids=set()
+    for word in words:
 
-    cursor.execute(
-        """ SELECT name,role,department, on_call_day,extension,specialty
-        FROM staff
-        WHERE name ILIKE %s 
-        OR specialty ILIKE %s
-        OR department ILIKE %s 
-        OR on_call_day ILIKE %s""",
-        (f'%{question_topic}%',f"%{question_topic}%",f"%{question_topic}%", f"%{question_topic}%")
+        cursor.execute(
+            """ SELECT id,name,role,department, on_call_day,extension,specialty
+            FROM staff
+            WHERE name ILIKE %s 
+            OR specialty ILIKE %s
+            OR department ILIKE %s 
+            OR on_call_day ILIKE %s""",
+            (f'%{word}%',f"%{word}%",f"%{word}%", f"%{word}%")
 
-        
-    )
-    rows=cursor.fetchall()
+            
+        )
+    for row in cursor.fetchall():
+        row_id=row[0]
+        if row_id not in seen_ids:
+            seen_ids.add(row_id)
+            all_rows.append(row)
+    
     cursor.close()
     conn.close()
 
-    if not rows:
+    if not all_rows:
         return "NO_RESULTS"
     
 
     formatted=[]
-    for row in rows:
-        name, role, department, on_call_day, extension, specialty = row
+    for row in all_rows:
+        _,name, role, department, on_call_day, extension, specialty = row
         formatted.append(
             f"{name} ({role}, {department}) - "
             f"On call: {on_call_day or 'not on rotation'}, "

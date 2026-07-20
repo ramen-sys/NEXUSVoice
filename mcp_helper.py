@@ -1,11 +1,15 @@
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
-
-DUMMY_SERVER_PARAMS=StdioServerParameters(
+DB_SERVER_PARAMS=StdioServerParameters(
     command="python",
-    args=["dummy_server.py"]
+    args=["db_server.py"]
 )#this tell our client how to launch our dummy server as a subprocess
+
+WEB_SERVER_PARAMS   =StdioServerParameters(
+    command="python",
+    args=["web_server.py"]
+)
 
 def mcp_tool_to_groq_format(mcp_tool):
     """converts a single mcp tool description into the JSON shape Groqs API expects
