@@ -2,7 +2,7 @@ import asyncio
 import os
 import json
 from dotenv import load_dotenv
-from groq import Groq
+from groq import Groq,BadRequestError
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 
@@ -10,6 +10,23 @@ from mcp_helper import DB_SERVER_PARAMS,WEB_SERVER_PARAMS, get_available_tools,c
 load_dotenv()
 
 groq_client=Groq(api_key=os.environ.get("GROQ_API_KEY"))
+def call_groq_with_retry(messages,tools=None,max_retries=2):
+    for attempt in range(max_retries+1):
+        try:
+            kwargs={
+                "model":'llama-3.3-70b-versatile',
+                "messages":messages,
+                "temperature":0
+            }
+            if tools:
+                kwargs["tools"]=tools
+                kwargs["tool_choice"]='auto'
+            return groq_client.chat.completions.create(**kwargs)
+        except BadRequestError as e:
+            if "tool_use_failed" in str(e) and attempt<max_retries:
+                print(f'[Tool call fomatting glitch, retrying.. attempt {attempt +1}]')
+                continue
+            raise
 
 async def run_agent(user_question:str):
     #OPening both sessions at once
@@ -22,13 +39,20 @@ async def run_agent(user_question:str):
                     await web_session.initialize()
 
                     db_tools=await get_available_tools(db_session)
-                    messages=[{"role":"user","content":user_question}]
-                    response=groq_client.chat.completions.create(
-                        model="llama-3.3-70b-versatile",
-                        temperature=0,
-                        messages=messages,
-                        tools=db_tools,
-                        tool_choice="auto")#letting groq decide if a tool is needed
+                    messages=[
+                        {"role":"system",
+                         "content":("You are an internal IT helpdesk assistant. When a tool returns "
+                            "information about a staff member, you MUST base your answer strictly "
+                            "on that tool result, even if the name matches a famous or well-known "
+                            "person you know about from elsewhere. Never substitute your own "
+                            "general knowledge for tool data about staff members. If the tool "
+                            "returns NO_RESULTS and no web search result is provided either, "
+                            "say you don't have that information — do not guess."
+                             
+                         )},
+                        {"role":"user","content":user_question}]
+                    response=call_groq_with_retry(messages,tools=db_tools)
+                    #letting groq decide if a tool is needed
 
                     reply=response.choices[0].message
 
@@ -77,11 +101,11 @@ async def run_agent(user_question:str):
                     print("Messages being sent for final answer:")
                     for m in messages:
                         print(m)
-                    final_response=groq_client.chat.completions.create(model="llama-3.3-70b-versatile",messages=messages)
+                    final_response=call_groq_with_retry(messages)
                     print("Final answer is: ",final_response.choices[0].message.content)
 
 if __name__=="__main__":
-    asyncio.run(run_agent("Who is Ayesha Malik ?"))
+    asyncio.run(run_agent("I ran into a netwok issue can, who can help me with it from office?"))
 
                     
 
