@@ -5,7 +5,7 @@ from mcp.server.fastmcp import FastMCP
 
 mcp=FastMCP("whisper-server")
 
-model=WhisperModel("base",device="cpu",compute_type="int8")
+model=WhisperModel("small",device="cpu",compute_type="int8")
 
 SAMPLE_RATE=16000 #whisper expects 16khz audio
 DURATION=5  
