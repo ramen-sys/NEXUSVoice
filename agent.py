@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 from groq import Groq,BadRequestError
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
+import string
 
 from mcp_helper import DB_SERVER_PARAMS,WEB_SERVER_PARAMS, get_available_tools,call_mcp_tool
 from mcp import StdioServerParameters
@@ -106,14 +107,24 @@ async def main():
                                     while True:
                                         result=await call_mcp_tool(whisper_session,"transcribe_audio",{})
 
-                                        if result=="NO_SPEECH_DETECTED":
-                                            print("[No speech detected, try again]")
+                                        if result=="NO_SPEECH_DETECTED" or result.startswith("Error executing tool") or "WinError" in result:
+                                            print(f"[ Whisper failed or No speech detected, try again] : {result}")
                                             continue
-                                        if result.strip().lower() in ["exit","stop","quit"]:
-                                            print("Goodbye")
+                                        cleaned=result.strip().lower().translate(str.maketrans('','',string.punctuation))
+                                        if cleaned in ["exit","stop","quit"]:
+                                            print("Good Bye")
                                             break
+                                        # if result.strip().lower() in ["exit","stop","quit"]:
+                                        #     print("Goodbye")
+                                        #     break
+                                        try:
+                                            await handle_question(result, db_session, web_session, tts_session)
+                                        except Exception as e:
+                                            print(f"[Error handling question: {e}]")
+                                            error_message = "Sorry, I had trouble processing that. Could you try asking again?"
+                                            await call_mcp_tool(tts_session, "speak_text", {"text": error_message})
 
-                                        await handle_question(result,db_session,web_session,tts_session)
+                                        
 
 # async def run_agent(user_question:str):
 #     #OPening both sessions at once
