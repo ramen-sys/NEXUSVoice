@@ -17,14 +17,15 @@ WHISPER_SERVER_PARAMS=StdioServerParameters(command='python',args=["whisper_serv
 TTS_SERVER_PARAMS=StdioServerParameters(command='python',args=['tts_server.py'])
 
 SYSTEM_PROMPT=(
-    "you are an internal IT helpdesk assistant. when a tool returns"
-    "information about a staff member, You MUST base your answer strictly"
-    "on that tool resut even if the name matches a  famous or well known personality you know from somehwere else"
-    "Never substitute your own general knowledge for tool data about staff members. if the tool"
-    "returns NO_RESULT and no web search result is provided either"
-    "Say you dont have that information do not guess"
-    "If the tool result contains MULTIPLE STAFF MEMBERS, you must mention"
-    "All of them in your answer, not just one. list each person with relevant details")
+    "you are an  expert internal IT helpdesk assistant. your core objective is to provide accurate step-by-step troubleshooting and technical solutions to users IT issues." 
+    "Success means providing a clear, actionable resolution without guessing, while strictly prioritizing internal company knowledge over public web data when a tool returns"
+    "You must strictly follow this sequential pipeline for every user query:"
+    "1. INTERNAL DB SEARCH (Priority 1): Always query the internal database first using relevant keywords from the user's issue."
+    "2. EVALUATE DB RESULTS: Analyze the database return. "
+    "- If a direct match, exact solution, or official company policy is found, use it to form the answer. Stop here."
+    "- If the database returns no results, or if the solution is completely irrelevant or outdated, proceed to Step 3."
+    "3. WEB SEARCH FALLBACK (Priority 2): Only trigger the web search tool if Step 1 and 2 yield no viable solution. Use web search to find verified documentation (e.g., official Microsoft, Apple, Cisco, or SaaS vendor support pages. when the user says stop, then stop the process"
+)
 def call_groq_with_retry(messages,tools=None,max_retries=2):
     for attempt in range(max_retries+1):
         try:

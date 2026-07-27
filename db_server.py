@@ -47,7 +47,25 @@ def query_staff(question_topic:str) -> str:
                         f"Ext: {extension}, Specialty: {specialty or 'N/A'}"
                     )
                 return "\n".join(formatted)
-
+            on_call_keywords = ["on call", "on-call", "oncall", "who is on call", "on call today", "on call this week"]
+            if any(kw in question_topic.lower() for kw in on_call_keywords):
+                cursor.execute(
+                    "SELECT id, name, role, department, on_call_day, extension, specialty "
+                    "FROM staff WHERE on_call_day IS NOT NULL"
+                )
+                all_rows = cursor.fetchall()
+                cursor.close()
+                conn.close()
+                if not all_rows:
+                    return "NO_RESULTS"
+                formatted = []
+                for row in all_rows:
+                    _, name, role, department, on_call_day, extension, specialty = row
+                    formatted.append(
+                        f"{name} ({role}, {department}) - "
+                        f"On call: {on_call_day}, Ext: {extension}, Specialty: {specialty or 'N/A'}"
+                    )
+                return "\n".join(formatted)
    
             words = [w for w in question_topic.split() if len(w) >= 3]
             all_rows=[]
