@@ -6,7 +6,7 @@ from groq import Groq,BadRequestError
 from mcp import ClientSession
 from mcp.client.stdio import stdio_client
 import string
-
+from datetime import datetime
 from mcp_helper import DB_SERVER_PARAMS,WEB_SERVER_PARAMS, get_available_tools,call_mcp_tool
 from mcp import StdioServerParameters
 load_dotenv()
@@ -23,7 +23,8 @@ SYSTEM_PROMPT=(
     "Never substitute your own general knowledge for tool data about staff members. if the tool"
     "returns NO_RESULT and no web search result is provided either"
     "Say you dont have that information do not guess"
-    "In case the answer to the query is not found in that case only then case the web-search tool")
+    "If the tool result contains MULTIPLE STAFF MEMBERS, you must mention"
+    "All of them in your answer, not just one. list each person with relevant details")
 def call_groq_with_retry(messages,tools=None,max_retries=2):
     for attempt in range(max_retries+1):
         try:
@@ -43,8 +44,9 @@ def call_groq_with_retry(messages,tools=None,max_retries=2):
             raise
 
 async def handle_question(user_question:str,db_session,web_session,tts_session):
+    current_datetime=datetime.now().strftime("%A, %B %d, %Y, %I:%M %p")
     messages=[
-        {"role":"system","content":SYSTEM_PROMPT},
+        {"role":"system","content":SYSTEM_PROMPT + f"\n\nCurrent date and time: {current_datetime}."},
         {"role":"user","content":user_question}
     ]
     db_tools= await get_available_tools(db_session)
@@ -79,6 +81,10 @@ async def handle_question(user_question:str,db_session,web_session,tts_session):
                 "content":f"The internal database had no results. Here is information from a web search instead :\n{web_result}"
 
             })
+        print("--- Messages before final answer ---")
+        for m in messages:
+            print(m)
+        print("--- end ---")
         final_response=call_groq_with_retry(messages)
         answer=final_response.choices[0].message.content
 
