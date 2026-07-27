@@ -1,9 +1,10 @@
 import sounddevice as sd
 from scipy.io.wavfile import write
-from faster_whisper import WhisperModel
+
 from mcp.server.fastmcp import FastMCP
 import whisper
 import sys
+import numpy as np
 
 
 mcp=FastMCP("whisper-server")
@@ -28,6 +29,12 @@ def transcribe_audio() -> str:
         dtype="int16"
     )
     sd.wait()
+    volume = np.abs(recording).mean()
+    SILENCE_THRESHOLD = 100  # tune this based on testing
+
+    if volume < SILENCE_THRESHOLD:
+        print(f"[Silence detected, volume: {volume:.1f}]", file=sys.stderr)
+        return "NO_SPEECH_DETECTED"
 
 
     write("temp_recording.wav",SAMPLE_RATE,recording)
@@ -36,10 +43,10 @@ def transcribe_audio() -> str:
     transcribed_text=result["text"].strip()
 
     if not transcribed_text:
-        return "No Speech detected"
+        return "NO_SPEECH_DETECTED"
 
 
-    print(f'[Transcribed: {transcribed_text}]')
+    print(f'[Transcribed: {transcribed_text}],file=sys.stderr')
     return transcribed_text
 
 

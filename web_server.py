@@ -1,7 +1,13 @@
 from mcp.server.fastmcp import FastMCP
 from ddgs import DDGS
+import os
+import sys
+import requests
+from dotenv import load_dotenv
 
 mcp = FastMCP("web-server")
+load_dotenv()
+SERPER_API_KEY=os.environ.get("SERPER_API_KEY")
 
 
 @mcp.tool()
@@ -15,20 +21,30 @@ def web_search(query: str) -> str:
     query should be a short, clear search phrase.
     """
     try:
-        results = DDGS().text(query, max_results=3)
-    except Exception as e:
-        return f"WEB_SEARCH_ERROR: {e}"
+        response=requests.post(
+            "https://google.serper.dev/search",
+            headers={"X-API-KEY":SERPER_API_KEY,"Content-Type":"application/json"},
+            json={"q":query},
+            timeout=10
 
-    if not results:
+        )
+        response.raise_for_status()
+        data=response.json()
+    except Exception as e:
+        return f"WEB_SEARC_ERROR: {e}"
+    organic_results = data.get("organic", [])[:3]
+
+    if not organic_results:
         return "NO_RESULTS"
 
     formatted = []
-    for r in results:
+    for r in organic_results:
         title = r.get("title", "")
-        body = r.get("body", "")
-        formatted.append(f"{title}: {body}")
+        snippet = r.get("snippet", "")
+        formatted.append(f"{title}: {snippet}")
 
     return "\n\n".join(formatted)
+    
 
 
 if __name__ == "__main__":
