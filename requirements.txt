@@ -2,4 +2,9 @@ mcp
 groq
 python-dotenv
 psycopg2-binary
-ddgs
+requests
+openai-whisper
+sounddevice
+scipy
+numpy
+pywin32
