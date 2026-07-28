@@ -27,6 +27,7 @@ async def startup():
     sessions["db"]=await open_session(DB_SERVER_PARAMS)
     sessions["web"]=await open_session(WEB_SERVER_PARAMS)
     sessions["tts"]=await open_session(TTS_SERVER_PARAMS)
+    print("TTS session ready:", sessions["tts"])
     print("ALL MCP SESSIONS READY")
 
 
@@ -88,7 +89,7 @@ async def ask():
         final_response=call_groq_with_retry(messages)
         answer=final_response.choices[0].message.content
 
-    await call_mcp_tool(sessions["tts"],"speak_test",{"text":answer})
+        await call_mcp_tool(sessions["tts"],"speak_test",{"text":answer})
 
     return JSONResponse({"question":question,"answer":answer,"source":source})
 
