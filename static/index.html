@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NEXUS Voice — IT Helpdesk Agent</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: radial-gradient(circle at top, #1e293b 0%, #0f172a 70%);
+    color: #e2e8f0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    margin: 0;
+    min-height: 100vh;
+  }
+  .header { text-align: center; margin-bottom: 8px; }
+  h1 { color: #38bdf8; margin: 0; font-size: 32px; letter-spacing: 0.5px; }
+  p.subtitle { color: #94a3b8; margin: 4px 0 0 0; font-size: 14px; }
+
+  .mic-wrapper {
+    position: relative;
+    width: 120px;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 32px 0 12px 0;
+  }
+  .talk-btn {
+    position: relative;
+    z-index: 2;
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    color: #0f172a;
+    border: none;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    font-size: 32px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .talk-btn:hover:not(:disabled) { transform: scale(1.06); }
+  .talk-btn:disabled { background: #475569; cursor: not-allowed; box-shadow: none; }
+
+  .pulse-ring {
+    position: absolute;
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: rgba(56, 189, 248, 0.35);
+    animation: pulse 1.4s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(1); opacity: 0.7; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+
+  .status-row {
+    color: #94a3b8;
+    height: 22px;
+    font-size: 14px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot-flash { display: inline-flex; gap: 3px; }
+  .dot-flash span {
+    width: 6px; height: 6px;
+    background: #38bdf8;
+    border-radius: 50%;
+    animation: flash 1s infinite ease-in-out;
+  }
+  .dot-flash span:nth-child(2) { animation-delay: 0.2s; }
+  .dot-flash span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes flash { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
+
+  .chat-log {
+    width: 100%;
+    max-width: 620px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .bubble-row { display: flex; flex-direction: column; }
+  .bubble-row.user { align-items: flex-end; }
+  .bubble-row.agent { align-items: flex-start; }
+
+  .bubble {
+    padding: 14px 18px;
+    border-radius: 16px;
+    max-width: 80%;
+    line-height: 1.5;
+    font-size: 15px;
+    animation: fadeIn 0.3s ease;
+  }
+  .bubble.user {
+    background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+    color: #0f172a;
+    border-bottom-right-radius: 4px;
+  }
+  .bubble.agent {
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    border-bottom-left-radius: 4px;
+  }
+
+  .source-tag {
+    font-size: 11px;
+    margin-top: 5px;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .source-tag.database { background: #14532d; color: #86efac; }
+  .source-tag.web { background: #1e3a8a; color: #93c5fd; }
+  .source-tag.none { background: #3f3f46; color: #d4d4d8; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const sourceLabels = {
+  database: "📊 From database",
+  web: "🌐 From web search",
+  none: "💬 Direct answer"
+};
+
+function Bubble({ text, who, source }) {
+  return (
+    <div className={"bubble-row " + who}>
+      <div className={"bubble " + who}>{text}</div>
+      {who === "agent" && source && (
+        <span className={"source-tag " + source}>{sourceLabels[source] || ""}</span>
+      )}
+    </div>
+  );
+}
+
+function App() {
+  const [messages, setMessages] = useState([]);
+  const [listening, setListening] = useState(false);
+  const [statusText, setStatusText] = useState("");
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleTalk = async () => {
+    setListening(true);
+    setStatusText("Listening");
+
+    try {
+      const res = await fetch("/ask", { method: "POST" });
+      setStatusText("Thinking");
+      const data = await res.json();
+
+      setMessages(prev => {
+        const updated = [...prev];
+        if (data.question) updated.push({ text: data.question, who: "user" });
+        updated.push({ text: data.answer, who: "agent", source: data.source });
+        return updated;
+      });
+    } catch (err) {
+      setMessages(prev => [...prev, { text: "Something went wrong: " + err, who: "agent", source: "none" }]);
+    }
+
+    setListening(false);
+    setStatusText("");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div className="header">
+        <h1>🎙️ NEXUS Voice</h1>
+        <p className="subtitle">Local IT Helpdesk Voice Agent — MCP powered</p>
+      </div>
+
+      <div className="mic-wrapper">
+        {listening && <div className="pulse-ring"></div>}
+        <button className="talk-btn" onClick={handleTalk} disabled={listening}>🎤</button>
+      </div>
+
+      <div className="status-row">
+        {statusText && (
+          <>
+            <span>{statusText}</span>
+            <span className="dot-flash"><span></span><span></span><span></span></span>
+          </>
+        )}
+      </div>
+
+      <div className="chat-log">
+        {messages.map((m, i) => (
+          <Bubble key={i} text={m.text} who={m.who} source={m.source} />
+        ))}
+        <div ref={chatEndRef}></div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
